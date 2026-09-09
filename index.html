@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zintegrowany System Informacji Pasażerskiej - TechNova SIP (Pro CA Edition)</title>
+    <style>
+        :root {
+            /* KOLORYSTYKA CREDIT AGRICOLE & PREMIUM GLASSMORPHISM */
+            --ca-green-deep: #004B3C;
+            --ca-green-bright: #00A779;
+            --ca-green-glow: rgba(0, 167, 121, 0.4);
+            --ca-teal: #007A64;
+            
+            --glass-bg: rgba(4, 24, 19, 0.55);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-muted: #a3b8b0;
+            --meta-bg: rgba(255, 255, 255, 0.06);
+            
+            /* STATUSY KURSÓW */
+            --success-color: #00A779;
+            --info-color: #0098ba;
+            --edit-color: #f59e0b;
+            --danger-color: #d31134;
+            --alert-color: #d31134;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        }
+
+        body {
+            background: #020a07;
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        /* TŁO LIQUID GLASS */
+        .liquid-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #031712 0%, #010605 100%);
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(130px);
+            opacity: 0.22;
+            animation: float 25s infinite alternate ease-in-out;
+        }
+
+        .blob1 { width: 550px; height: 550px; top: -10%; left: -5%; background: linear-gradient(45deg, var(--ca-green-deep), #00ffaa); }
+        .blob2 { width: 650px; height: 650px; bottom: -15%; right: -5%; background: linear-gradient(45deg, var(--ca-teal), var(--ca-green-bright)); animation-duration: 32s; animation-delay: -6s; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            50% { transform: translate(50px, 40px) scale(1.03) rotate(180deg); }
+            100% { transform: translate(-30px, 50px) scale(0.97) rotate(360deg); }
+        }
+
+        /* TABLICA INFORMACYJNA */
+        .board-container {
+            position: relative;
+            z-index: 2;
+            width: 85vw;
+            max-width: 1050px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(35px);
+            -webkit-backdrop-filter: blur(35px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 25px 35px;
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .board-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 15px;
+        }
+
+        .station-info h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(180deg, #ffffff 0%, #cce5df 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .station-info p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .station-info p::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--ca-green-bright);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--ca-green-bright);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* WIDŻET POGODOWY */
+        .weather-widget {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+        }
+
+        .weather-temp { font-weight: 700; color: #ffffff; }
+        .weather-city { color: var(--text-muted); font-size: 0.8rem; font-weight: 600; }
+
+        /* CZAS I DATA */
+        .time-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .date-display {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+            font-weight: 600;
+        }
+
+        .clock {
+            font-size: 1.9rem;
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 18px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+        }
+
+        /* LISTA ODJAZDÓW */
+        .departures-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 230px;
+        }
+
+        .departure-row {
+            display: grid;
+            grid-template-columns: 80px 1fr auto;
+            align-items: center;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            overflow: hidden;
+        }
+
+        .departure-row:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.08);
+            transform: translateX(3px);
+        }
+
+        .departure-row.status-departed { opacity: 0.35; background: rgba(211, 17, 52, 0.04); border-color: rgba(211, 17, 52, 0.12); }
+        .departure-row.status-cancelled { background: rgba(211, 17, 52, 0.08); border-color: rgba(211, 17, 52, 0.25); }
+
+        .line-number {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #ffffff;
+            background: var(--ca-green-bright);
+            padding: 4px 12px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 65px;
+            width: fit-content;
+            box-shadow: 0 0 15px var(--ca-green-glow);
+        }
+
+        .departure-row:nth-child(2) .line-number { background: var(--ca-teal); box-shadow: 0 0 15px rgba(0, 122, 100, 0.4); }
+        .departure-row:nth-child(3) .line-number { background: var(--ca-green-deep); box-shadow: 0 0 15px rgba(0, 75, 60, 0.4); }
+        .departure-row.status-cancelled .line-number { background: #475569 !important; box-shadow: none !important; text-decoration: line-through; }
+
+        .route-details {
+            display: flex;
+            flex-direction: column;
+            padding-left: 20px;
+            gap: 3px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .destination-container {
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
+            position: relative;
+        }
+
+        .marquee-box {
+            display: inline-flex;
+            white-space: nowrap;
+            width: max-content;
+            will-change: transform;
+        }
+
+        .destination {
+            font-size: 1.4rem;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            padding-right: 60px;
+        }
+
+        .departure-row.status-cancelled .destination { text-decoration: line-through; color: #7f978e; }
+
+        .marquee-running { animation: linear-scroll 14s linear infinite; }
+        @keyframes linear-scroll {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+        }
+
+        .meta-tags { display: flex; gap: 8px; align-items: center; }
+        .tag {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #cbd5e1;
+            background: var(--meta-bg);
+            padding: 2px 6px;
+            border-radius: 5px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        
+        .tag.platform-tag {
+            background: rgba(0, 167, 121, 0.15);
+            color: #ffffff;
+            border: 1px solid rgba(0, 167, 121, 0.4);
+            font-weight: 700;
+        }
+
+        .feature-icon {
+            font-size: 0.8rem;
+            background: rgba(0, 167, 121, 0.12);
+            color: #10b981;
+            border: 1px solid rgba(0, 167, 121, 0.25);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .time-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 15px;
+            min-width: 200px;
+            text-align: right;
+        }
+
+        .delay-badge {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #ef4444;
+            background: rgba(211, 17, 52, 0.12);
+            border: 1px solid rgba(211, 17, 52, 0.25);
+            padding: 3px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+
+        .time-to-departure {
+            font-size: 1.4rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: var(--ca-green-bright);
+        }
+
+        .time-to-departure.status-less-than-minute {
+            color: #ef4444;
+            font-weight: 900;
+            animation: critical-blink 0.8s infinite ease-in-out;
+            text-shadow: 0 0 10px rgba(211, 17, 52, 0.4);
+        }
+
+        .time-to-departure.status-critical { color: #ef4444; font-weight: 900; }
+        .time-to-departure.status-later { color: #ffffff; font-weight: 400; opacity: 0.85; }
+
+        @keyframes critical-blink {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+
+        .no-data {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 40px 20px;
+            font-style: italic;
+            border: 1px dashed rgba(255,255,255,0.05);
+            border-radius: 12px;
+        }
+
+        /* ALERT BAR */
+        .system-alert-bar {
+            background: rgba(211, 17, 52, 0.1);
+            border: 1px solid rgba(211, 17, 52, 0.25);
+            border-radius: 10px;
+            padding: 8px 15px;
+            overflow: hidden;
+            white-space: nowrap;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .system-alert-title {
+            background: var(--alert-color);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 900;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .system-alert-ticker {
+            display: inline-block;
+            font-size: 0.9rem;
+            color: #ffffff;
+            font-weight: 600;
+            animation: alertMarquee 25s linear infinite;
+            will-change: transform;
+        }
+
+        @keyframes alertMarquee {
+            0% { transform: translate3d(30%, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+
+        /* PRZYCISKI STEROWANIA DOLNEGO */
+        .controls-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: rgba(4, 20, 16, 0.7);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 10px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover { background: rgba(0, 167, 121, 0.2); border-color: var(--ca-green-bright); transform: translateY(-1px); }
+        .control-btn.btn-speak { background: rgba(0, 152, 186, 0.2); border-color: #0098ba; }
+        .control-btn.btn-speak:hover { background: rgba(0, 152, 186, 0.4); }
+
+        /* WYSURWANY PANEL CENTRALNEJ DYSPOZYTURY */
+        .admin-panel {
+            position: fixed;
+            top: 0;
+            right: -520px;
+            width: 480px;
+            height: 100vh;
+            background: rgba(3, 18, 14, 0.97);
+            backdrop-filter: blur(35px);
+            border-left: 1px solid var(--glass-border);
+            z-index: 100;
+            padding: 25px;
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        .admin-panel.open { right: 0; }
+
+        .admin-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 10px;
+        }
+
+        .admin-panel-header h2 { font-size: 1.2rem; font-weight: 700; color: #fff; }
+        
+        .admin-close-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .admin-close-btn:hover { background: #ef4444; border-color: #ef4444; }
+
+        .kpi-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .kpi-box {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .kpi-box div { font-size: 1.3rem; font-weight: 700; color: var(--ca-green-bright); }
+        .kpi-box span { font-size: 0.75rem; color: var(--text-muted); }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; font-size: 0.8rem; color: #a3b8b0; font-weight: 600; }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+            color: white;
+            font-size: 0.9rem;
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--ca-green-bright); }
+
+        .checkbox-group { display: flex; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+        .checkbox-group label { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #cbd5e1; cursor: pointer; }
+        
+        .time-helpers { display: flex; gap: 4px; margin-top: 4px; }
+        .helper-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+        .helper-btn:hover { background: var(--ca-teal); }
+
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            background: var(--ca-green-bright);
+            border: none;
+            color: white;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 12px var(--ca-green-glow);
+        }
+        .btn-primary:hover { background: #008764; }
+        
+        .btn-secondary {
+            background: #27272a;
+            color: #fff;
+            border: 1px solid #3f3f46;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .btn-secondary:hover { background: #3f3f46; }
+
+        .section-title {
+            margin: 20px 0 10px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+            font-size: 1rem;
+            color: var(--ca-green-bright);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .manage-list { max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .manage-item {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+
+        .manage-item-top { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+        .manage-item-top button {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;
+            padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; margin-left: 4px;
+        }
+        .manage-item-top button:hover { background: #334155; }
+
+        .delay-control-panel {
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .delay-btn {
+            background: rgba(211, 17, 52, 0.15); border: 1px solid rgba(211, 17, 52, 0.3);
+            color: #fca5a5; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;
+        }
+        .delay-btn:hover { background: #ef4444; color: white; }
+        .delay-btn.reset { background: rgba(0, 167, 121, 0.15); border-color: rgba(0, 167, 121, 0.3); color: #a7f3d0; }
+        .delay-btn.reset:hover { background: var(--ca-green-bright); color: white; }
+
+        /* SKALOWANIE PEŁNEGO EKRANU */
+        :-webkit-full-screen .board-container { width: 95vw; max-width: 1500px; padding: 45px 55px; border-radius: 24px; gap: 25px; }
+        :-webkit-full-screen .departure-row { grid-template-columns: 110px 1fr auto; padding: 24px 35px; border-radius: 16px; }
+        :-webkit-full-screen .line-number { font-size: 2.2rem; padding: 6px 20px; border-radius: 12px; min-width: 100px; }
+        :-webkit-full-screen .route-details { padding-left: 30px; gap: 6px; }
+        :-webkit-full-screen .destination { font-size: 2.4rem; padding-right: 100px; }
+        :-webkit-full-screen .tag, :-webkit-full-screen .feature-icon { font-size: 1.1rem; padding: 4px 10px; }
+        :-webkit-full-screen .time-container { min-width: 300px; gap: 25px; }
+        :-webkit-full-screen .delay-badge { font-size: 1.3rem; padding: 6px 12px; }
+        :-webkit-full-screen .time-to-departure { font-size: 2.4rem; }
+        :-webkit-full-screen .station-info h1 { font-size: 2.8rem; }
+        :-webkit-full-screen .station-info p { font-size: 1.3rem; }
+        :-webkit-full-screen .clock { font-size: 2.8rem; padding: 10px 25px; }
+        :-webkit-full-screen .date-display { font-size: 1.3rem; }
+        :-webkit-full-screen .weather-widget { font-size: 1.3rem; padding: 10px 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="liquid-bg">
+        <div class="blob blob1"></div>
+        <div class="blob blob2"></div>
+    </div>
+
+    <div class="board-container" onclick="closeAdminIfOpen()">
+        <header class="board-header">
+            <div class="station-info">
+                <h1 id="display-station-name">Wyszukiwanie Węzła...</h1>
+                <p>Zintegrowana Informacja Pasażerska (SIP)</p>
+            </div>
+            
+            <div class="header-right">
+                <div id="weather-display" class="weather-widget">
+                    <span id="weather-icon">☀️</span>
+                    <span id="weather-temp" class="weather-temp">--°C</span>
+                    <span id="weather-city" class="weather-city">---</span>
+                </div>
+
+                <div class="time-wrapper">
+                    <div class="date-display" id="live-date">--.--.----</div>
+                    <div class="clock" id="live-clock">00:00:00</div>
+                </div>
+            </div>
+        </header>
+
+        <main class="departures-list" id="departures-board">
+            <div class="no-data">System pusty. Dodaj kursy w panelu dyspozytorskim.</div>
+        </main>
+
+        <div class="system-alert-bar" id="system-alert-bar">
+            <span class="system-alert-title" id="alert-badge-title">Komunikat</span>
+            <div style="overflow:hidden; width:100%;"><span class="system-alert-ticker" id="system-alert-text"></span></div>
+        </div>
+    </div>
+
+    <div class="controls-container">
+        <button class="control-btn btn-speak" onclick="speakNextDepartures(event)">🔊 Zapowiedź Głosowa</button>
+        <button class="control-btn" onclick="toggleAdminPanel(event)">Dyspozytura SIP</button>
+        <button class="control-btn" onclick="toggleFullscreen()">Pełny Ekran</button>
+    </div>
+
+    <div class="admin-panel" id="admin-panel" onclick="event.stopPropagation()">
+        <div class="admin-panel-header">
+            <h2>Zarządzanie Siecią SIP</h2>
+            <button class="admin-close-btn" onclick="toggleAdminPanel(event)">✕</button>
+        </div>
+
+        <div class="kpi-container">
+            <div class="kpi-box"><div id="kpi-stations">0</div><span>Przystanki</span></div>
+            <div class="kpi-box"><div id="kpi-courses">0</div><span>Wszystkie Kursy</span></div>
+        </div>
+
+        <h3 class="section-title">Narzędzia i Kopia Zapasowa</h3>
+        <div style="display:flex; gap:6px; margin-bottom: 12px; flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="generateMockData()">🎲 Generuj Kursy</button>
+            <button class="btn-secondary" onclick="exportDataJSON()">📥 Eksport (JSON)</button>
+            <button class="btn-secondary" onclick="document.getElementById('import-file').click()">📤 Import</button>
+            <input type="file" id="import-file" style="display:none;" onchange="importDataJSON(event)">
+        </div>
+
+        <div class="form-group" style="background:rgba(0,167,121,0.06); padding:10px; border-radius:8px; border:1px solid rgba(0,167,121,0.2);">
+            <label>🌤️ Konfiguracja Realnej Pogody (Open-Meteo):</label>
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="weather-city-input" placeholder="Wpisz miejscowość (np. Rzeszów)...">
+                <button type="button" class="helper-btn" style="background:var(--ca-green-bright); border:none;" onclick="updateWeatherCity()">Zapisz</button>
+            </div>
+        </div>
+        
+        <div class="form-group" style="background:rgba(0,152,186,0.05); padding:8px; border-radius:6px; border:1px solid rgba(0,152,186,0.2);">
+            <label>⏱️ Symulator upływu czasu (Wirtualny przeskok):</label>
+            <div style="display:flex; gap:4px;">
+                <button type="button" class="helper-btn" style="background:#0098ba;" onclick="adjustVirtualTime(1)">+1 min</button>
+                <button type="button" class="helper-btn" style="background:#0098ba;" onclick="adjustVirtualTime(5)">+5 min</button>
+                <button type="button" class="helper-btn" style="background:#0098ba;" onclick="adjustVirtualTime(15)">+15 min</button>
+                <button type="button" class="helper-btn" style="background:#d31134;" onclick="resetVirtualTime()">Reset</button>
+            </div>
+            <span id="time-warp-indicator" style="font-size:0.75rem; color:#0098ba; display:block; margin-top:4px; font-weight:600;"></span>
+        </div>
+
+        <h3 class="section-title" style="color:var(--danger-color);">Centrum Powiadamiania RSO</h3>
+        <div class="form-group" style="background:rgba(211,17,52,0.03); padding:10px; border-radius:8px; border:1px solid rgba(211,17,52,0.15);">
+            <label>Typ komunikatu:</label>
+            <select id="admin-alert-type" onchange="changeAlertType(this.value)">
+                <option value="info">Informacja pasażerska (Błękitny)</option>
+                <option value="warn">Ostrzeżenie / Utrudnienia (Pomarańczowy)</option>
+                <option value="danger">Zagrożenie / Alert (Czerwony)</option>
+            </select>
+            <label style="margin-top: 6px;">Treść paska informacyjnego:</label>
+            <input type="text" id="admin-alert-input" placeholder="Wpisz tekst ostrzeżenia..." oninput="updateSystemAlert(this.value)">
+        </div>
+
+        <h3 class="section-title">Konfiguracja Przystanków</h3>
+        <div class="form-group">
+            <label>Monitorowany przystanek (Główna tablica):</label>
+            <select id="station-select" onchange="selectStation(this.value)"></select>
+        </div>
+
+        <div class="form-group" style="background: rgba(255,255,255,0.01); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border);">
+            <div style="display: flex; gap: 6px;">
+                <input type="text" id="new-station-name" placeholder="np. Rzeszów Cieplińskiego 01" style="flex:1;">
+                <button type="button" onclick="addNewStation()" style="padding: 0 12px; background: var(--ca-green-bright); border:none; border-radius:6px; color:white; font-weight:bold; cursor:pointer;">Dodaj</button>
+            </div>
+            <div id="admin-stations-list" style="margin-top: 10px; max-height: 80px; overflow-y: auto; display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
+
+        <h3 class="section-title" id="form-mode-title">Kreator Kursu</h3>
+        <form id="pro-departure-form" onsubmit="handleFormSubmit(event)">
+            <input type="hidden" id="edit-course-idx" value="">
+            
+            <div class="form-group">
+                <label>Lokalizacja docelowa (Słupek)</label>
+                <select id="input-station" required></select>
+            </div>
+            
+            <div class="form-group">
+                <label>Dni kursowania (Rozkład)</label>
+                <select id="input-schedule-type">
+                    <option value="robocze">Poniedziałek - Piątek</option>
+                    <option value="sobota">Soboty</option>
+                    <option value="swieta">Niedziele i Święta</option>
+                </select>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div class="form-group">
+                    <label>Linia</label>
+                    <input type="text" id="input-line" required placeholder="np. 14A">
+                </div>
+                <div class="form-group">
+                    <label>Godzina odjazdu</label>
+                    <input type="time" id="input-time" required>
+                    <div class="time-helpers">
+                        <button type="button" class="helper-btn" onclick="setTimeOffset(5)">+5m</button>
+                        <button type="button" class="helper-btn" onclick="setTimeOffset(10)">+10m</button>
+                        <button type="button" class="helper-btn" onclick="setTimeOffset(20)">+20m</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px;">
+                <div class="form-group">
+                    <label>Kierunek</label>
+                    <input type="text" id="input-dest" required placeholder="np. Jasionka Lotnisko">
+                </div>
+                <div class="form-group">
+                    <label>Peron / Stan.</label>
+                    <input type="text" id="input-platform" placeholder="np. 2">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Status kursu oraz udogodnienia:</label>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="feat-low"> ♿ Niska podłoga</label>
+                    <label><input type="checkbox" id="feat-wifi"> 📶 Wi-Fi</label>
+                    <label><input type="checkbox" id="feat-air"> ❄️ Klimatyzacja</label>
+                    <label style="color: #ef4444; font-weight: bold;"><input type="checkbox" id="feat-cancelled"> ❌ KURS ODWOŁANY</label>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div class="form-group">
+                    <label>ID Kursu / Zadanie</label>
+                    <input type="text" id="input-course" required placeholder="np. K_902">
+                </div>
+                <div class="form-group">
+                    <label>Brygada</label>
+                    <input type="text" id="input-brigade" required placeholder="np. 02">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary" id="submit-form-btn">Wyślij do sieci</button>
+            <button type="button" id="cancel-edit-btn" style="display:none; margin-top: 4px; background:#475569;" class="btn-primary" onclick="resetCourseForm()">Anuluj Edycję</button>
+        </form>
+
+        <h3 class="section-title">Zarządzanie / Baza Opóźnień</h3>
+        <div class="form-group" style="display: flex; gap: 8px;">
+            <input type="text" id="search-course-input" placeholder="Filtruj bazę..." oninput="renderBoard()" style="flex: 2;">
+            <select id="admin-schedule-filter" onchange="renderBoard()" style="flex: 1;">
+                <option value="all">Wszystkie dni</option>
+                <option value="robocze">Pon-Pt</option>
+                <option value="sobota">Soboty</option>
+                <option value="swieta">Nd i Święta</option>
+            </select>
+        </div>
+        
+        <div class="manage-list" id="admin-pro-list"></div>
+    </div>
+
+    <script>
+        // --- ZMIENNE GŁÓWNE ---
+        let stations = JSON.parse(localStorage.getItem('sys_stations')) || [];
+        let departures = JSON.parse(localStorage.getItem('sys_pro_departures')) || [];
+        let currentStation = localStorage.getItem('sys_current_station') || "";
+        let globalAlert = localStorage.getItem('sys_global_alert') || "";
+        let globalAlertType = localStorage.getItem('sys_global_alert_type') || "info";
+        let timeWarpOffset = parseInt(localStorage.getItem('sys_time_offset')) || 0;
+        let weatherCity = localStorage.getItem('sys_weather_city') || "Nienadówka"; // Domyślnie
+        
+        let lastRenderedState = "";
+        let selectedForSpeech = new Set(); // Przechowuje ID kursów do TTS
+
+        function init() {
+            // Migracja ID
+            departures = departures.map(d => ({
+                ...d,
+                id: d.id || 'C_' + Math.random().toString(36).substr(2, 9),
+                scheduleType: d.scheduleType || 'robocze'
+            }));
+
+            if (stations.length === 0) {
+                stations = ["Zintegrowany Węzeł Przesiadkowy", "Rzeszów Plac Wolności 01", "Nienadówka"];
+                localStorage.setItem('sys_stations', JSON.stringify(stations));
+            }
+            if (!currentStation || !stations.includes(currentStation)) {
+                currentStation = stations[0];
+                localStorage.setItem('sys_current_station', currentStation);
+            }
+            if (departures.length === 0) {
+                generateMockData(false);
+            }
+
+            document.getElementById('admin-alert-input').value = globalAlert;
+            document.getElementById('admin-alert-type').value = globalAlertType;
+            document.getElementById('weather-city-input').value = weatherCity;
+            
+            updateSystemAlert(globalAlert);
+            changeAlertType(globalAlertType);
+            updateStationSelectors();
+            updateWarpIndicator();
+            
+            // POGODA
+            fetchWeather();
+            setInterval(fetchWeather, 600000); // Co 10 minut
+            
+            // ZEGAR I TABLICA
+            setInterval(updateClock, 1000);
+            updateClock();
+        }
+
+        // --- POGODA (OPEN-METEO) ---
+        async function fetchWeather() {
+            if (!weatherCity) return;
+            try {
+                // 1. Geokodowanie (Pobranie współrzędnych z nazwy miasta)
+                const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(weatherCity)}&count=1&language=pl&format=json`);
+                const geoData = await geoRes.json();
+                
+                if (geoData.results && geoData.results.length > 0) {
+                    const loc = geoData.results[0];
+                    // 2. Pobranie pogody dla współrzędnych
+                    const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current_weather=true`);
+                    const weatherData = await weatherRes.json();
+                    
+                    if (weatherData.current_weather) {
+                        const temp = Math.round(weatherData.current_weather.temperature);
+                        document.getElementById('weather-temp').textContent = `${temp}°C`;
+                        document.getElementById('weather-icon').textContent = getWeatherIcon(weatherData.current_weather.weathercode);
+                        document.getElementById('weather-city').textContent = loc.name;
+                    }
+                } else {
+                    document.getElementById('weather-temp').textContent = `--°C`;
+                    document.getElementById('weather-city').textContent = "Nie znaleziono";
+                }
+            } catch (e) {
+                console.error("Błąd pogodowy:", e);
+                document.getElementById('weather-city').textContent = "Błąd API";
+            }
+        }
+
+        function getWeatherIcon(code) {
+            if (code === 0) return "☀️";
+            if (code >= 1 && code <= 3) return "⛅";
+            if (code >= 45 && code <= 48) return "🌫️";
+            if (code >= 51 && code <= 67) return "🌧️";
+            if (code >= 71 && code <= 77) return "❄️";
+            if (code >= 80 && code <= 82) return "🌦️";
+            if (code >= 85 && code <= 86) return "🌨️";
+            if (code >= 95 && code <= 99) return "⛈️";
+            return "☁️";
+        }
+
+        function updateWeatherCity() {
+            const val = document.getElementById('weather-city-input').value.trim();
+            if (val) {
+                weatherCity = val;
+                localStorage.setItem('sys_weather_city', weatherCity);
+                fetchWeather();
+            }
+        }
+
+        // --- CZAS ---
+        function getSimulatedDate() {
+            const realNow = new Date();
+            return new Date(realNow.getTime() + timeWarpOffset * 1000);
+        }
+
+        function updateClock() {
+            const simNow = getSimulatedDate();
+            
+            document.getElementById('live-date').textContent = simNow.toLocaleDateString('pl-PL');
+            
+            document.getElementById('live-clock').textContent = 
+                String(simNow.getHours()).padStart(2, '0') + ":" + 
+                String(simNow.getMinutes()).padStart(2, '0') + ":" + 
+                String(simNow.getSeconds()).padStart(2, '0');
+                
+            renderBoard();
+        }
+
+        function adjustVirtualTime(mins) {
+            timeWarpOffset += (mins * 60);
+            localStorage.setItem('sys_time_offset', timeWarpOffset);
+            updateWarpIndicator();
+            updateClock();
+        }
+
+        function resetVirtualTime() {
+            timeWarpOffset = 0;
+            localStorage.setItem('sys_time_offset', timeWarpOffset);
+            updateWarpIndicator();
+            updateClock();
+        }
+
+        function updateWarpIndicator() {
+            const ind = document.getElementById('time-warp-indicator');
+            if(timeWarpOffset === 0) {
+                ind.textContent = "Czas rzeczywisty zsynchronizowany.";
+            } else {
+                ind.textContent = `Przesunięcie czasu o: +${Math.round(timeWarpOffset/60)} min`;
+            }
+        }
+
+        // --- ALERTY RSO ---
+        function changeAlertType(type) {
+            globalAlertType = type;
+            localStorage.setItem('sys_global_alert_type', type);
+            
+            const root = document.documentElement;
+            const badgeTitle = document.getElementById('alert-badge-title');
+            
+            if (type === 'info') {
+                root.style.setProperty('--alert-color', '#0098ba');
+                badgeTitle.textContent = "Informacja";
+            } else if (type === 'warn') {
+                root.style.setProperty('--alert-color', '#f59e0b');
+                badgeTitle.textContent = "Utrudnienia";
+            } else {
+                root.style.setProperty('--alert-color', '#d31134');
+                badgeTitle.textContent = "ALERT RSO";
+            }
+        }
+
+        function updateSystemAlert(text) {
+            globalAlert = text;
+            localStorage.setItem('sys_global_alert', text);
+            const bar = document.getElementById('system-alert-bar');
+            const ticker = document.getElementById('system-alert-text');
+            
+            if(text.trim().length > 0) {
+                ticker.textContent = text + " • " + text + " • " + text;
+                bar.style.display = "flex";
+            } else {
+                bar.style.display = "none";
+            }
+        }
+
+        // --- ZARZĄDZANIE KURSAMI ---
+        function setTimeOffset(minutesToAdd) {
+            const simNow = getSimulatedDate();
+            simNow.setMinutes(simNow.getMinutes() + minutesToAdd);
+            document.getElementById('input-time').value = `${String(simNow.getHours()).padStart(2, '0')}:${String(simNow.getMinutes()).padStart(2, '0')}`;
+        }
+
+        function updateStationSelectors() {
+            const selectDisplay = document.getElementById('station-select');
+            const selectForm = document.getElementById('input-station');
+            const listAdmin = document.getElementById('admin-stations-list');
+
+            const optionsHTML = stations.map(s => `<option value="${s}">${s}</option>`).join('');
+            selectDisplay.innerHTML = optionsHTML;
+            selectForm.innerHTML = optionsHTML;
+            selectDisplay.value = currentStation;
+            document.getElementById('display-station-name').textContent = currentStation;
+            document.getElementById('kpi-stations').textContent = stations.length;
+
+            listAdmin.innerHTML = stations.map((s, idx) => `
+                <div style="display:flex; justify-content:space-between; font-size:0.8rem; background:rgba(255,255,255,0.02); padding:4px; border-radius:4px;">
+                    <span>${s}</span>
+                    ${stations.length > 1 ? `<button type="button" onclick="deleteStation(${idx})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-weight:bold;">✕</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function addNewStation() {
+            const nameInput = document.getElementById('new-station-name');
+            const name = nameInput.value.trim();
+            if (!name || stations.includes(name)) return;
+            stations.push(name);
+            localStorage.setItem('sys_stations', JSON.stringify(stations));
+            nameInput.value = "";
+            updateStationSelectors();
+            renderBoard(true);
+        }
+
+        function deleteStation(idx) {
+            const deletedStation = stations[idx];
+            if(confirm(`Usunąć stację ${deletedStation}?`)) {
+                stations.splice(idx, 1);
+                departures = departures.filter(d => d.station !== deletedStation);
+                if (currentStation === deletedStation) currentStation = stations[0];
+                localStorage.setItem('sys_stations', JSON.stringify(stations));
+                localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+                updateStationSelectors();
+                renderBoard(true);
+            }
+        }
+
+        function selectStation(stationName) {
+            currentStation = stationName;
+            document.getElementById('display-station-name').textContent = stationName;
+            localStorage.setItem('sys_current_station', stationName);
+            renderBoard(true);
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const editIdxStr = document.getElementById('edit-course-idx').value;
+            
+            const courseData = {
+                id: editIdxStr !== "" ? departures[parseInt(editIdxStr, 10)].id : 'C_' + Math.random().toString(36).substr(2, 9),
+                station: document.getElementById('input-station').value,
+                scheduleType: document.getElementById('input-schedule-type').value,
+                line: document.getElementById('input-line').value.trim(),
+                time: document.getElementById('input-time').value,
+                dest: document.getElementById('input-dest').value.trim(),
+                platform: document.getElementById('input-platform').value.trim(),
+                course: document.getElementById('input-course').value.trim(),
+                brigade: document.getElementById('input-brigade').value.trim(),
+                features: {
+                    low: document.getElementById('feat-low').checked,
+                    wifi: document.getElementById('feat-wifi').checked,
+                    air: document.getElementById('feat-air').checked,
+                    cancelled: document.getElementById('feat-cancelled').checked
+                },
+                delay: editIdxStr !== "" ? (departures[parseInt(editIdxStr, 10)].delay || 0) : 0
+            };
+
+            if (editIdxStr === "") departures.push(courseData);
+            else departures[parseInt(editIdxStr, 10)] = courseData;
+
+            localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+            resetCourseForm();
+            renderBoard(true);
+        }
+
+        function addDelay(index, minutes) {
+            departures[index].delay = (departures[index].delay || 0) + minutes;
+            localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+            renderBoard(true);
+        }
+
+        function resetDelay(index) {
+            departures[index].delay = 0;
+            localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+            renderBoard(true);
+        }
+
+        function startEditCourse(originalIndex) {
+            const item = departures[originalIndex];
+            document.getElementById('edit-course-idx').value = originalIndex;
+            document.getElementById('input-station').value = item.station;
+            document.getElementById('input-schedule-type').value = item.scheduleType || 'robocze';
+            document.getElementById('input-line').value = item.line;
+            document.getElementById('input-time').value = item.time;
+            document.getElementById('input-dest').value = item.dest;
+            document.getElementById('input-platform').value = item.platform || "";
+            document.getElementById('input-course').value = item.course;
+            document.getElementById('input-brigade').value = item.brigade;
+            
+            document.getElementById('feat-low').checked = item.features ? item.features.low : false;
+            document.getElementById('feat-wifi').checked = item.features ? item.features.wifi : false;
+            document.getElementById('feat-air').checked = item.features ? item.features.air : false;
+            document.getElementById('feat-cancelled').checked = item.features ? item.features.cancelled : false;
+
+            document.getElementById('cancel-edit-btn').style.display = "block";
+            document.getElementById('form-mode-title').textContent = "Edycja Kursu";
+            document.getElementById('admin-panel').scrollTop = 0;
+        }
+
+        function resetCourseForm() {
+            document.getElementById('pro-departure-form').reset();
+            document.getElementById('edit-course-idx').value = "";
+            document.getElementById('cancel-edit-btn').style.display = "none";
+            document.getElementById('form-mode-title').textContent = "Kreator Kursu";
+        }
+
+        function deleteProDeparture(index) {
+            if(confirm("Usunąć wybrany kurs z bazy?")) {
+                const idToDelete = departures[index].id;
+                selectedForSpeech.delete(idToDelete);
+                departures.splice(index, 1);
+                localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+                renderBoard(true);
+            }
+        }
+
+        // --- OBLICZANIE CZASU ---
+        function getSecondsToDeparture(departureTimeStr, delayMinutes = 0) {
+            const simNow = getSimulatedDate();
+            const [hours, minutes] = departureTimeStr.split(':').map(Number);
+            const depDate = new Date(simNow.getTime());
+            depDate.setHours(hours, minutes + delayMinutes, 0, 0);
+
+            if (depDate - simNow < -12 * 60 * 60 * 1000) depDate.setDate(depDate.getDate() + 1);
+            else if (depDate - simNow > 12 * 60 * 60 * 1000) depDate.setDate(depDate.getDate() - 1);
+
+            return Math.floor((depDate - simNow) / 1000);
+        }
+
+        // --- ANIMACJA TEKSTU ---
+        function handleMarqueeLogics() {
+            const containers = document.querySelectorAll('.destination-container');
+            containers.forEach(container => {
+                const box = container.querySelector('.marquee-box');
+                if (!box) return;
+                const firstText = box.querySelector('.destination');
+                
+                if (firstText.offsetWidth > container.offsetWidth) {
+                    if (box.querySelectorAll('.destination').length === 1) {
+                        const clone = firstText.cloneNode(true);
+                        box.appendChild(clone);
+                    }
+                    box.classList.add('marquee-running');
+                } else {
+                    box.classList.remove('marquee-running');
+                    const clones = box.querySelectorAll('.destination');
+                    if(clones.length > 1) clones[1].remove();
+                }
+            });
+        }
+
+        // --- ZAPOWIEDŹ GŁOSOWA (TTS) ---
+        function toggleSpeechSelection(id) {
+            if(selectedForSpeech.has(id)) {
+                selectedForSpeech.delete(id);
+            } else {
+                selectedForSpeech.add(id);
+            }
+        }
+
+        function speakNextDepartures(e) {
+            if(e) e.stopPropagation();
+            if (!('speechSynthesis' in window)) {
+                alert("Twój system nie obsługuje syntezatora mowy.");
+                return;
+            }
+            window.speechSynthesis.cancel();
+
+            let coursesToSpeak = departures.filter(d => selectedForSpeech.has(d.id));
+
+            if(coursesToSpeak.length === 0) {
+                const u = new SpeechSynthesisUtterance("Proszę najpierw zaznaczyć kursy do zapowiedzi w panelu dyspozytora.");
+                u.lang = 'pl-PL';
+                window.speechSynthesis.speak(u);
+                return;
+            }
+
+            let textToSpeak = `Komunikat stacyjny dla stacji ${currentStation}. Najbliższe zaplanowane odjazdy to: `;
+            
+            coursesToSpeak.forEach((item) => {
+                if(item.features?.cancelled) {
+                    textToSpeak += `Uwaga, kurs linii ${item.line} kierunek ${item.dest} planowany na godzinę ${item.time} został odwołany. `;
+                } else {
+                    textToSpeak += `Linia ${item.line} kierunek ${item.dest}. Odjazd o godzinie ${item.time}. `;
+                    if(item.platform) textToSpeak += `Stanowisko numer ${item.platform}. `;
+                    if(item.delay > 0) textToSpeak += `Opóźnienie wynosi około ${item.delay} minut. `;
+                }
+            });
+
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = 'pl-PL';
+            utterance.rate = 0.95;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // --- OBSŁUGA ŚWIĄT PAŃSTWOWYCH ---
+        function isHoliday(date) {
+            if (date.getDay() === 0) return true; // Niedziela zawsze jest świętem
+
+            const d = date.getDate();
+            const m = date.getMonth() + 1;
+            const y = date.getFullYear();
+
+            // Święta stałe w Polsce
+            const fixedHolidays = ['1-1', '1-6', '5-1', '5-3', '8-15', '11-1', '11-11', '12-25', '12-26'];
+            if (fixedHolidays.includes(m + '-' + d)) return true;
+
+            // Algorytm Meeusa/Jonesa/Butchera do wyznaczania świąt ruchomych
+            const a = y % 19;
+            const b = Math.floor(y / 100);
+            const c = y % 100;
+            const d_math = Math.floor(b / 4);
+            const e = b % 4;
+            const f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d_math - g + 15) % 30;
+            const i = Math.floor(c / 4);
+            const k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m_math = Math.floor((a + 11 * h + 22 * l) / 451);
+            const p = h + l - 7 * m_math + 114;
+            
+            const easterMonth = Math.floor(p / 31);
+            const easterDay = (p % 31) + 1;
+
+            const easterDate = new Date(y, easterMonth - 1, easterDay);
+            
+            // Poniedziałek Wielkanocny (+1 dzień od Wielkanocy)
+            const easterMonday = new Date(easterDate);
+            easterMonday.setDate(easterDate.getDate() + 1);
+            
+            // Boże Ciało (+60 dni od Wielkanocy)
+            const corpusChristi = new Date(easterDate);
+            corpusChristi.setDate(easterDate.getDate() + 60);
+
+            if (m === easterMonday.getMonth() + 1 && d === easterMonday.getDate()) return true;
+            if (m === corpusChristi.getMonth() + 1 && d === corpusChristi.getDate()) return true;
+
+            return false;
+        }
+
+        // --- GENERATOR DANYCH ---
+        function generateMockData(alertUser = true) {
+            const mockLines = ["10", "14A", "19", "22", "53", "202", "N1"];
+            const mockDests = ["Jasionka Port Lotniczy", "Rzeszów Rejtana Uniwersytet", "Boguchwała Dworzec", "Tyczyn Wyższa Szkoła", "Słocina Park", "Mrowla"];
+            const scheduleTypes = ['robocze', 'sobota', 'swieta'];
+            const simNow = getSimulatedDate();
+            
+            let defaultSched = isHoliday(simNow) ? 'swieta' : (simNow.getDay() === 6 ? 'sobota' : 'robocze');
+
+            const generated = [];
+            stations.forEach(st => {
+                for(let i=0; i<5; i++) {
+                    const offsetMins = (i * 12) + Math.floor(Math.random() * 8) + 2;
+                    const cTime = new Date(simNow.getTime() + offsetMins * 60 * 1000);
+                    const timeStr = `${String(cTime.getHours()).padStart(2, '0')}:${String(cTime.getMinutes()).padStart(2, '0')}`;
+                    
+                    generated.push({
+                        id: 'C_' + Math.random().toString(36).substr(2, 9),
+                        station: st,
+                        scheduleType: Math.random() > 0.2 ? defaultSched : scheduleTypes[Math.floor(Math.random() * scheduleTypes.length)],
+                        line: mockLines[Math.floor(Math.random() * mockLines.length)],
+                        time: timeStr,
+                        dest: mockDests[Math.floor(Math.random() * mockDests.length)],
+                        platform: String(Math.floor(Math.random() * 4) + 1),
+                        course: `CA_${Math.floor(Math.random() * 800) + 100}`,
+                        brigade: `0${Math.floor(Math.random() * 6) + 1}`,
+                        delay: Math.random() > 0.7 ? Math.floor(Math.random() * 10) + 1 : 0,
+                        features: { low: Math.random() > 0.2, wifi: Math.random() > 0.5, air: Math.random() > 0.3, cancelled: Math.random() > 0.92 }
+                    });
+                }
+            });
+
+            departures = generated;
+            selectedForSpeech.clear(); 
+            localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+            renderBoard(true);
+            if(alertUser) alert("Wygenerowano nową losową bazę operacyjną sieci.");
+        }
+
+        // --- IMPORT / EKSPORT ---
+        function exportDataJSON() {
+            const dataStr = JSON.stringify({ stations, departures, globalAlert, globalAlertType });
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = `SIP_Data_Export_${new Date().toISOString().slice(0,10)}.json`;
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if(parsed.stations && parsed.departures) {
+                        stations = parsed.stations;
+                        departures = parsed.departures.map(d => ({
+                            ...d,
+                            id: d.id || 'C_' + Math.random().toString(36).substr(2, 9),
+                            scheduleType: d.scheduleType || 'robocze'
+                        }));
+                        if(parsed.globalAlert) globalAlert = parsed.globalAlert;
+                        if(parsed.globalAlertType) globalAlertType = parsed.globalAlertType;
+                        
+                        localStorage.setItem('sys_stations', JSON.stringify(stations));
+                        localStorage.setItem('sys_pro_departures', JSON.stringify(departures));
+                        localStorage.setItem('sys_global_alert', globalAlert);
+                        localStorage.setItem('sys_global_alert_type', globalAlertType);
+                        
+                        currentStation = stations[0];
+                        localStorage.setItem('sys_current_station', currentStation);
+                        selectedForSpeech.clear();
+                        
+                        updateSystemAlert(globalAlert);
+                        changeAlertType(globalAlertType);
+                        updateStationSelectors();
+                        renderBoard(true);
+                        alert("Baza danych SIP zaimportowana pomyślnie.");
+                    } else {
+                        alert("Błędny format pliku strukturalnego.");
+                    }
+                } catch (err) {
+                    alert("Wystąpił błąd podczas parsowania pliku JSON.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- RENDEROWANIE GŁÓWNE ---
+        function renderBoard(force = false) {
+            const board = document.getElementById('departures-board');
+            document.getElementById('kpi-courses').textContent = departures.length;
+
+            const simDate = getSimulatedDate();
+            let currentDayType = 'robocze';
+
+            // Sprawdzamy, czy dzisiaj jest niedziela lub ustawowe święto (np. Boże Ciało)
+            if (isHoliday(simDate)) {
+                currentDayType = 'swieta';
+            } else if (simDate.getDay() === 6) {
+                currentDayType = 'sobota';
+            }
+
+            let activeFiltered = departures.map((item, idx) => {
+                return { ...item, realIndex: idx, secondsLeft: getSecondsToDeparture(item.time, item.delay || 0) };
+            }).filter(item => item.station === currentStation && item.scheduleType === currentDayType);
+
+            activeFiltered = activeFiltered.filter(item => item.secondsLeft >= -10);
+
+            activeFiltered.sort((a, b) => {
+                if (a.features?.cancelled && !b.features?.cancelled) return 1;
+                if (!a.features?.cancelled && b.features?.cancelled) return -1;
+                return a.secondsLeft - b.secondsLeft;
+            });
+
+            const displayLimits = activeFiltered.slice(0, 3);
+
+            const currentCoursesSignature = displayLimits.map(i => {
+                let statusStr = "later";
+                if (i.features?.cancelled) statusStr = "cancelled";
+                else if (i.secondsLeft < 0) statusStr = "departed";
+                else if (i.secondsLeft < 60) statusStr = "now";
+                else if (i.secondsLeft < 3000) statusStr = "min";
+                return `${i.line}-${i.dest}-${statusStr}-${Math.ceil(i.secondsLeft / 60)}-${i.delay}-${i.platform}`;
+            }).join('|');
+
+            if (currentCoursesSignature !== lastRenderedState || force) {
+                lastRenderedState = currentCoursesSignature;
+
+                if (displayLimits.length === 0) {
+                    board.innerHTML = `<div class="no-data">Brak zaplanowanych odjazdów w tym trybie rozkładu:<br><b style="color:white; font-style:normal;">${currentStation}</b></div>`;
+                } else {
+                    board.innerHTML = displayLimits.map(item => {
+                        let timeContent = "";
+                        let statusClass = "";
+                        let rowStatusClass = "";
+                        let delayTagHTML = (item.delay && item.delay > 0 && !item.features?.cancelled) ? `<span class="delay-badge">+${item.delay} min</span>` : "";
+
+                        if (item.features?.cancelled) {
+                            timeContent = "ODWOŁANY";
+                            statusClass = "status-critical";
+                            rowStatusClass = "status-cancelled";
+                        } else if (item.secondsLeft < 0) {
+                            timeContent = "ODJECHAŁ";
+                            statusClass = "status-critical";
+                            rowStatusClass = "status-departed";
+                        } else if (item.secondsLeft >= 0 && item.secondsLeft < 60) { 
+                            timeContent = `> 1 min`;
+                            statusClass = "status-less-than-minute";
+                        } else if (item.secondsLeft >= 60 && item.secondsLeft < 3000) {
+                            timeContent = `${Math.ceil(item.secondsLeft / 60)} min`;
+                        } else {
+                            timeContent = item.time;
+                            statusClass = "status-later";
+                        }
+
+                        let featureHTML = "";
+                        if (item.features) {
+                            if (item.features.low) featureHTML += `<span class="feature-icon" title="Niska podłoga">♿</span> `;
+                            if (item.features.wifi) featureHTML += `<span class="feature-icon" title="Wi-Fi">📶</span> `;
+                            if (item.features.air) featureHTML += `<span class="feature-icon" title="Klimatyzacja">❄️</span> `;
+                        }
+
+                        let platformHTML = item.platform ? `<span class="tag platform-tag">Peron ${item.platform}</span>` : "";
+
+                        return `
+                            <div class="departure-row ${rowStatusClass}">
+                                <div class="line-number">${item.line}</div>
+                                <div class="route-details">
+                                    <div class="destination-container">
+                                        <div class="marquee-box">
+                                            <div class="destination">${item.dest}</div>
+                                        </div>
+                                    </div>
+                                    <div class="meta-tags">
+                                        <span class="tag">Zad: ${item.course}</span>
+                                        <span class="tag">Bryg: ${item.brigade}</span>
+                                        ${platformHTML}
+                                        ${featureHTML}
+                                    </div>
+                                </div>
+                                <div class="time-container">
+                                    ${delayTagHTML}
+                                    <div class="time-to-departure ${statusClass}">${timeContent}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    handleMarqueeLogics();
+                }
+            }
+
+            // Aktualizujemy listę admina jeśli jest otwarta, lub jeśli nałożono to siłą
+            renderAdminList();
+        }
+
+        // --- BRAKUJĄCA FUNKCJA W PANELU ADMINA ---
+        function renderAdminList() {
+            const adminList = document.getElementById('admin-pro-list');
+            if(!adminList) return; // Zabezpieczenie
+
+            const searchQuery = document.getElementById('search-course-input').value.toLowerCase();
+            const scheduleFilter = document.getElementById('admin-schedule-filter').value;
+
+            const sortedAdmin = departures.map((item, index) => ({...item, originalIndex: index}))
+                                          .filter(item => {
+                                              const matchSearch = item.line.toLowerCase().includes(searchQuery) || 
+                                                                  item.dest.toLowerCase().includes(searchQuery) || 
+                                                                  item.course.toLowerCase().includes(searchQuery) ||
+                                                                  item.station.toLowerCase().includes(searchQuery);
+                                              const matchSchedule = scheduleFilter === 'all' || item.scheduleType === scheduleFilter;
+                                              return matchSearch && matchSchedule;
+                                          })
+                                          .sort((a, b) => a.station.localeCompare(b.station) || a.time.localeCompare(b.time));
+            
+            if(sortedAdmin.length === 0) {
+                adminList.innerHTML = `<div class="no-data">Brak wyników wyszukiwania</div>`;
+            } else {
+                adminList.innerHTML = sortedAdmin.map(item => {
+                    let scheduleLabel = item.scheduleType === 'robocze' ? 'Pon-Pt' : (item.scheduleType === 'sobota' ? 'Sobota' : 'Nd/Św');
+                    let dayColor = item.scheduleType === 'robocze' ? '#007A64' : (item.scheduleType === 'sobota' ? '#0098ba' : '#d31134');
+                    
+                    return `
+                    <div class="manage-item" style="${item.station === currentStation ? 'border-left: 3px solid var(--ca-green-bright); background: rgba(0,167,121,0.02);' : ''} ${item.features?.cancelled ? 'border-left: 3px solid var(--danger-color); opacity: 0.6;' : ''}">
+                        
+                        <div style="margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; color:var(--ca-green-bright); font-weight:bold;">
+                                <input type="checkbox" onchange="toggleSpeechSelection('${item.id}')" ${selectedForSpeech.has(item.id) ? 'checked' : ''}>
+                                Wybierz do zapowiedzi 📢
+                            </label>
+                            <span class="tag" style="background: ${dayColor}55; border: 1px solid ${dayColor}; color: white;">${scheduleLabel}</span>
+                        </div>
+
+                        <div class="manage-item-top">
+                            <span><b>[${item.line}]</b> ${item.dest} (<b>${item.time}</b>) ${item.delay > 0 ? `<b style="color:#ef4444">[+${item.delay}m]</b>` : ''}</span>
+                            <div>
+                                <button type="button" onclick="startEditCourse(${item.originalIndex})">Edytuj</button>
+                                <button type="button" onclick="deleteProDeparture(${item.originalIndex})" style="color:#ef4444;">Usuń</button>
+                            </div>
+                        </div>
+                        <div class="delay-control-panel">
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Słupek: ${item.station} ${item.platform ? `| Peron: ${item.platform}`:''}</span>
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" class="delay-btn" onclick="addDelay(${item.originalIndex}, 1)">+1 min</button>
+                                <button type="button" class="delay-btn" onclick="addDelay(${item.originalIndex}, 5)">+5 min</button>
+                                ${item.delay > 0 ? `<button type="button" class="delay-btn reset" onclick="resetDelay(${item.originalIndex})">Reset</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            }
+        }
+
+        function toggleAdminPanel(e) { 
+            if (e) e.stopPropagation(); 
+            document.getElementById('admin-panel').classList.toggle('open'); 
+        }
+        
+        function closeAdminIfOpen() { 
+            document.getElementById('admin-panel').classList.remove('open'); 
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => alert(err.message));
+            else document.exitFullscreen();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
